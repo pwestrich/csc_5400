@@ -1,0 +1,8 @@
+[package]
+name = "csc_5400"
+version = "0.1.0"
+authors = ["Philip Westrich <pwestrich@me.com>"]
+
+[dependencies]
+
+num-complex = "0.1.*"
