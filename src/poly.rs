@@ -358,6 +358,7 @@ impl Poly for Polynomial {
 
 		//calculate the new answers
 		let mut answer = Vec::with_capacity(n);
+		unsafe {answer.set_len(n);}
 
 		for k in 0..n / 2 {
 
@@ -367,8 +368,8 @@ impl Poly for Polynomial {
 			let y0 = e[k] + right;
 			let y1 = e[k] - right;
 
-			answer.insert(k, y0);
-			answer.insert(k + n / 2, y1);
+			answer[k] = y0;
+			answer[k + (n / 2)] =  y1;
 
 		}
 
@@ -384,17 +385,48 @@ mod tests {
 	use super::*;
 	use num_complex::Complex64;
 
+	const TOLERANCE: f64 = 0.0001;
+
+	fn compare_within_tolerance(left: &Polynomial, right: &Polynomial){
+
+		if left.len() != right.len() {
+
+			panic!("Lengths are not equal. Left: {:?}, Right: {:?}", left, right);
+
+		}
+
+		for i in 0..left.len() {
+
+			let diff = left[i] - right[i];
+
+			let diffReal = diff.re.abs();
+			let diffImag = diff.im.abs();
+
+			if diffReal > TOLERANCE {
+
+				panic!("Difference on real part {} is greater than tolerance {}. Index: {}, Left: {:?}, Right: {:?}", diffReal, TOLERANCE, i, left, right);
+
+			} else if diffImag > TOLERANCE {
+
+				panic!("Difference on imag part {} is greater than tolerance {}. Index: {}, Left: {:?}, Right: {:?}", diffImag, TOLERANCE, i, left, right);
+
+			}
+
+		}
+
+	}
+
 	#[test]
 	fn test_roots_of_unity(){
 
 		let roots = rootsOfUnity(1);
-		assert_eq!(roots, vec![Complex64::new(1.0, 0.0)]);
+		compare_within_tolerance(&roots, &vec![Complex64::new(1.0, 0.0)]);
 
 		let roots = rootsOfUnity(2);
-		assert_eq!(roots, vec![Complex64::new(1.0, 0.0), Complex64::new(-1.0, 0.0)]);
+		compare_within_tolerance(&roots, &vec![Complex64::new(1.0, 0.0), Complex64::new(-1.0, 0.0)]);
 
 		let roots = rootsOfUnity(4);
-		assert_eq!(roots, vec![Complex64::new(1.0, 0.0), Complex64::new(0.0, 1.0), Complex64::new(-1.0, 0.0), Complex64::new(0.0, -1.0)]);
+		compare_within_tolerance(&roots, &vec![Complex64::new(1.0, 0.0), Complex64::new(0.0, 1.0), Complex64::new(-1.0, 0.0), Complex64::new(0.0, -1.0)]);
 
 	}
 
@@ -485,7 +517,7 @@ mod tests {
 
 		}
 
-		assert_eq!(attempt, answer);
+		compare_within_tolerance(&attempt, &answer);
 
 	}
 
@@ -504,7 +536,7 @@ mod tests {
 
 		}
 
-		assert_eq!(attempt, answer);
+		compare_within_tolerance(&attempt, &answer);
 
 	}
 
@@ -523,7 +555,7 @@ mod tests {
 
 		}
 
-		assert_eq!(attempt, answer);
+		compare_within_tolerance(&attempt, &answer);
 
 	}
 
@@ -534,7 +566,7 @@ mod tests {
 		let answer 	= Polynomial::readFromFile(&"data/test_answers.txt".to_string()).unwrap();
 		let attempt = poly.evaluateAtFFT();
 
-		assert_eq!(attempt, answer);
+		compare_within_tolerance(&attempt, &answer);
 
 	}
 
