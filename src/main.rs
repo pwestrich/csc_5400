@@ -9,8 +9,9 @@ mod poly;
 
 use std::io;
 use std::io::Write;
+use std::time::Instant;
 
-use poly::{Polynomial, Poly};
+use poly::{Polynomial, Poly, rootsOfUnity};
 
 fn main(){
 
@@ -43,11 +44,11 @@ fn main(){
 			"1" 	=> polynomial = generateRandomPolynomial(),
 			"2" 	=> polynomial = readFromFile(),
 			"3" 	=> writeToFile(&polynomial),
-			"4" 	=> println!("Not implemented."),
-			"5" 	=> println!("Not implemented."),
-			"6" 	=> println!("Not implemented."),
-			"7" 	=> println!("Not implemented."),
-			"8" 	=> println!("Not implemented."),
+			"4" 	=> evaluateNaive(&polynomial),
+			"5" 	=> evaluateHorner(&polynomial),
+			"6" 	=> evaluateNaiveImproved(&polynomial),
+			"7" 	=> evaluateFFT(&polynomial),
+			"8" 	=> benchmarkAlgorithms(&polynomial),
 			"9" 	=> println!("Not implemented."),
 			"10"	=> return,
 			_   	=> println!("Invalid choice. Please try again.")
@@ -145,5 +146,134 @@ fn writeToFile(poly: &Polynomial){
 		println!("File written successfully to \"{}\"", filename);
 
 	}
+
+}
+
+fn evaluateNaive(poly: &Polynomial){
+
+	//generate the n roots of unity for the polynomial
+	println!("Generating roots of unity...");
+	let roots = rootsOfUnity(poly.len() as i32);
+	let mut values = Vec::new();
+
+	println!("Evaluating polynomial using the naive method...");
+
+	for root in roots {
+
+		values.push(poly.evaluateAtNaive(root));
+
+	}
+
+	println!("Done. The values are: {}", values.print());
+
+}
+
+fn evaluateHorner(poly: &Polynomial){
+
+	//generate the n roots of unity for the polynomial
+	println!("Generating roots of unity...");
+	let roots = rootsOfUnity(poly.len() as i32);
+	let mut values = Vec::new();
+
+	println!("Evaluating polynomial using Horner's method...");
+
+	for root in roots {
+
+		values.push(poly.evaluateAtHorner(root));
+
+	}
+
+	println!("Done. The values are: {}", values.print());
+
+}
+
+fn evaluateNaiveImproved(poly: &Polynomial){
+
+	//generate the n roots of unity for the polynomial
+	println!("Generating roots of unity...");
+	let roots = rootsOfUnity(poly.len() as i32);
+	let mut values = Vec::new();
+
+	println!("Evaluating polynomial using the improved naive method...");
+
+	for root in roots {
+
+		values.push(poly.evaluateAtNaiveImproved(root));
+
+	}
+
+	println!("Done. The values are: {}", values.print());
+
+}
+
+fn evaluateFFT(poly: &Polynomial){
+
+	println!("Evaluating polynomial using the FFT...");
+
+	let values = poly.evaluateAtFFT();
+
+	println!("Done. The values are: {}", values.print());
+
+}
+
+fn benchmarkAlgorithms(poly: &Polynomial){
+
+	//generate the n roots of unity for the polynomial
+	println!("Generating roots of unity...");
+	let rootsNaive 			= rootsOfUnity(poly.len() as i32);
+	let rootsHorner 		= rootsOfUnity(poly.len() as i32);
+	let rootsNaiveImproved 	= rootsOfUnity(poly.len() as i32);
+
+	println!("Benchmarking algorithms...");
+
+	let mut naiveValues 		= Vec::with_capacity(poly.len());
+	let mut hornerValues 		= Vec::with_capacity(poly.len());
+	let mut naiveImprovedValues = Vec::with_capacity(poly.len());
+
+	let naiveStart = Instant::now();
+
+	for root in rootsNaive {
+
+		naiveValues.push(poly.evaluateAtNaive(root));
+
+	}
+
+	let naiveEnd = Instant::now();
+
+	for root in rootsHorner {
+
+		hornerValues.push(poly.evaluateAtHorner(root));
+
+	}
+
+	let hornerEnd = Instant::now();
+
+	for root in rootsNaiveImproved {
+
+		naiveImprovedValues.push(poly.evaluateAtNaiveImproved(root));
+
+	}
+
+	let naiveImprovedEnd = Instant::now();
+
+	let fftValues = poly.evaluateAtFFT();
+
+	let fftEnd = Instant::now();
+
+	let naiveElapsed 			= naiveEnd.duration_since(naiveStart);
+	let hornerElapsed 			= hornerEnd.duration_since(naiveEnd);
+	let naiveImprovedElapsed 	= naiveImprovedEnd.duration_since(hornerEnd);
+	let fftElapsed 				= fftEnd.duration_since(naiveImprovedEnd);
+
+	println!("Done. Results:");
+	println!("Naive:          {}s {}ns", naiveElapsed.as_secs(), naiveElapsed.subsec_nanos());
+	println!("Horner's:       {}s {}ns", hornerElapsed.as_secs(), hornerElapsed.subsec_nanos());
+	println!("Naive Improved: {}s {}ns", naiveImprovedElapsed.as_secs(), naiveImprovedElapsed.subsec_nanos());
+	println!("FFT:            {}s {}ns", fftElapsed.as_secs(), fftElapsed.subsec_nanos());
+	println!("Values:");
+	println!("Naive:          {}", naiveValues.print());
+	println!("Horner's:       {}", hornerValues.print());
+	println!("Naive Improved: {}", naiveImprovedValues.print());
+	println!("FFT:            {}", fftValues.print());
 
 }

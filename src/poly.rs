@@ -1,5 +1,6 @@
 
 use std::str;
+use std::f64::consts::PI;
 use std::fs::File;
 use std::io::{Read, Write, BufWriter};
 
@@ -80,6 +81,31 @@ fn get_min_err(pos: &[u8]) -> &str {
     return errstr_final;
 }
 
+///calculates an individual root of unity given n and k
+fn rootOfUnity(n: f64, k: f64) -> Complex64 {
+
+	let theta = (2.0 * PI * k) / n;
+	let (imag, real) = theta.sin_cos();
+
+	return Complex64::new(real, imag);
+
+}
+
+///Calculates the n roots of unity using Euler's formula.
+pub fn rootsOfUnity(n: i32) -> Vec<Complex64> {
+
+	let mut roots = Vec::with_capacity(n as usize);
+
+	for k in 0..n {
+
+		roots.push(rootOfUnity(n as f64, k as f64));
+
+	}
+
+	return roots;
+
+}
+
 ///This trait defines what we can do with a polynomial
 pub trait Poly {
 
@@ -96,6 +122,18 @@ pub trait Poly {
 	///Writes the polynomial to a file.
 	///Returns Ok(()) on success, or a nerror message on failure.
 	fn writeToFile(&self, filename: &String) -> Result<(), String>;
+
+	///Evaluates the polynomial at the given value using the naive method
+	fn evaluateAtNaive(&self, x: Complex64) -> Complex64;
+
+	///Evaluates using Horner's method
+	fn evaluateAtHorner(&self, x: Complex64) -> Complex64;
+
+	///Evaluates using the improved naive method
+	fn evaluateAtNaiveImproved(&self, x: Complex64) -> Complex64;
+
+	///Evaluates using the Fast Fourier Transform
+	fn evaluateAtFFT(&self) ->Vec<Complex64>;
 
 }
 
@@ -241,6 +279,103 @@ impl Poly for Polynomial {
 
 	}
 
+	fn evaluateAtNaive(&self, x: Complex64) -> Complex64 {
+
+		let mut sum = Complex64::new(0.0, 0.0);
+
+		for (i, coeff) in self.iter().enumerate() {
+
+			sum = sum + (coeff * x.powf(i as f64));
+
+		}
+
+		return sum;
+
+	}
+
+	fn evaluateAtHorner(&self, x: Complex64) -> Complex64 {
+
+		let mut sum = Complex64::new(0.0, 0.0);
+
+		for coeff in self.iter().rev() {
+
+			sum = (sum * x) + coeff;
+
+		}
+
+		return sum;
+
+	}
+
+	fn evaluateAtNaiveImproved(&self, x: Complex64) -> Complex64 {
+
+		let mut sum = Complex64::new(0.0, 0.0);
+		let mut xPower = Complex64::new(1.0, 0.0);
+
+		for coeff in self {
+
+			sum = sum + (coeff * xPower);
+			xPower = xPower * x;
+
+		}
+
+		return sum;
+
+	}
+
+	fn evaluateAtFFT(&self) -> Vec<Complex64> {
+
+		let n = self.len();
+
+		//base case
+		if n == 1 {
+
+			return vec![self[0]];
+
+		}
+
+		//split the list into even and odd pairs
+		let mut even = Polynomial::new();
+		let mut odd = Polynomial::new();
+
+		for (i, coeff) in self.iter().enumerate() {
+
+			if (i % 2) == 0 {
+
+				even.push(*coeff);
+
+			} else {
+
+				odd.push(*coeff);
+
+			}
+
+		}
+
+		//evaluate the evens and odds
+		let e = even.evaluateAtFFT();
+		let d = odd.evaluateAtFFT();
+
+		//calculate the new answers
+		let mut answer = Vec::with_capacity(n);
+
+		for k in 0..n / 2 {
+
+			let root = rootOfUnity(n as f64, k as f64);
+			let right = root * d[k];
+
+			let y0 = e[k] + right;
+			let y1 = e[k] - right;
+
+			answer.insert(k, y0);
+			answer.insert(k + n / 2, y1);
+
+		}
+
+		return answer;
+
+	}
+
 }
 
 #[cfg(test)]
@@ -248,6 +383,20 @@ mod tests {
 
 	use super::*;
 	use num_complex::Complex64;
+
+	#[test]
+	fn test_roots_of_unity(){
+
+		let roots = rootsOfUnity(1);
+		assert_eq!(roots, vec![Complex64::new(1.0, 0.0)]);
+
+		let roots = rootsOfUnity(2);
+		assert_eq!(roots, vec![Complex64::new(1.0, 0.0), Complex64::new(-1.0, 0.0)]);
+
+		let roots = rootsOfUnity(4);
+		assert_eq!(roots, vec![Complex64::new(1.0, 0.0), Complex64::new(0.0, 1.0), Complex64::new(-1.0, 0.0), Complex64::new(0.0, -1.0)]);
+
+	}
 
 	#[test]
 	fn test_read_file(){
@@ -318,6 +467,74 @@ mod tests {
 
 		let result = Polynomial::random(3, -5.0);
 		assert_eq!(result, Err("Range is negative or zero.".to_string()));
+
+	}
+
+	#[test]
+	fn test_evaluate_naive(){
+
+		let poly 	= Polynomial::readFromFile(&"data/test.txt".to_string()).unwrap();
+		let answer 	= Polynomial::readFromFile(&"data/test_answers.txt".to_string()).unwrap();
+		let roots = rootsOfUnity(poly.len() as i32);
+
+		let mut attempt = Vec::with_capacity(poly.len());
+
+		for root in roots {
+
+			attempt.push(poly.evaluateAtNaive(root));
+
+		}
+
+		assert_eq!(attempt, answer);
+
+	}
+
+	#[test]
+	fn test_evaluate_horner(){
+
+		let poly 	= Polynomial::readFromFile(&"data/test.txt".to_string()).unwrap();
+		let answer 	= Polynomial::readFromFile(&"data/test_answers.txt".to_string()).unwrap();
+		let roots = rootsOfUnity(poly.len() as i32);
+
+		let mut attempt = Vec::with_capacity(poly.len());
+
+		for root in roots {
+
+			attempt.push(poly.evaluateAtHorner(root));
+
+		}
+
+		assert_eq!(attempt, answer);
+
+	}
+
+	#[test]
+	fn test_evaluate_naive_improved(){
+
+		let poly 	= Polynomial::readFromFile(&"data/test.txt".to_string()).unwrap();
+		let answer 	= Polynomial::readFromFile(&"data/test_answers.txt".to_string()).unwrap();
+		let roots = rootsOfUnity(poly.len() as i32);
+
+		let mut attempt = Vec::with_capacity(poly.len());
+
+		for root in roots {
+
+			attempt.push(poly.evaluateAtNaiveImproved(root));
+
+		}
+
+		assert_eq!(attempt, answer);
+
+	}
+
+	#[test]
+	fn test_evaluate_fft(){
+
+		let poly 	= Polynomial::readFromFile(&"data/test.txt".to_string()).unwrap();
+		let answer 	= Polynomial::readFromFile(&"data/test_answers.txt".to_string()).unwrap();
+		let attempt = poly.evaluateAtFFT();
+
+		assert_eq!(attempt, answer);
 
 	}
 
