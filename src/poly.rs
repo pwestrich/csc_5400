@@ -1,5 +1,8 @@
 
+use std::cmp;
 use std::str;
+use std::str::FromStr;
+use std::slice;
 use std::f64::consts::PI;
 use std::fs::File;
 use std::io::{Read, Write, BufWriter};
@@ -12,11 +15,22 @@ use rand::distributions::IndependentSample;
 use rand::distributions::range::Range;
 use rand::thread_rng;
 
-///All a polynomial is is an array of its complex coefficients/
+///All a polynomial is is an array of its complex coefficients.
 ///poly[0] is the x^0 term, and so on
 pub type Polynomial = Vec<Complex64>;
 
 //<black_magic>
+//Create a function named "integer" that looks for an integer
+named!(integer<i64>,
+	map_res!(
+		map_res!(
+			digit,
+        	str::from_utf8
+      	),
+    	FromStr::from_str
+	)
+);
+
 //Create a function named "fractional" that is looking for
 //a period followed by a series of digits, returns the digits.
 named!(fractional, complete!(chain!(
@@ -27,32 +41,34 @@ named!(fractional, complete!(chain!(
 
 //Create a function named "fp" that is looking for a floating point number,
 //defined as an optional negative sign, followed by some digits, followed by
-//an optional "fractional" part, which is the function defined above
-//it creates a new string consisting of each of the pieces, which is not the most
-//efficient way to solve this problem, but I haven't figured out how to do it in the
-//zero-copy fashion. Once it has the string, it converts it to an f64 and returns it.
+//an optional "fractional" part, which is the function defined above.
+//"fp" creates a new slice covering the entire number. Once it has the slice,
+//it converts the slice to an f64 and returns the value.
 named!(fp<f64>, chain!(
     neg: opt!(tag!("-")) ~
     digits: digit ~
-    fract: opt!(fractional) ,
+    fract: opt!(fractional),
     || {
-        let mut numstr = String::new();
-        if let Some(_) = neg { numstr.push_str("-") }
-        numstr += str::from_utf8(digits).unwrap();
-        if let Some(fract) = fract { numstr.push_str("."); numstr.push_str(str::from_utf8(fract).unwrap()); }
-        let num: f64 = numstr.parse().unwrap();
+        let (start_addr, mut len) = if let Some(start) = neg {
+            (start.as_ptr(), start.len() + digits.len())
+        } else {
+            (digits.as_ptr(), digits.len())
+        };
+        if let Some(fract) = fract { len += fract.len() + 1 }
+        let numstr = unsafe { slice::from_raw_parts(start_addr, len) };
+        let num: f64 = str::from_utf8(numstr).unwrap().parse().unwrap();
         return num;
     }
 ));
 
 //Create a function named "polyfile" that returns a tuple of an i64 and a Polynomial.
-//It searches for a floating point number followed by at least one newline,
+//It searches for an integer followed by at least one newline,
 //then it looks for zero or more complex numbers. Each complex number is defined as
 //zero or more newlines, followed by a floating point number, followed by a comma,
 //followed by zero or more spaces or tabs, followed by another floating point number.
 named!(polyfile <(i64, Polynomial)>,
     chain!(
-        deg: fp ~
+        deg: integer ~
         many1!(tag!("\n")) ~
         cmplx: many0!(complete!(chain!(
             many0!(tag!("\n")) ~
@@ -68,7 +84,7 @@ named!(polyfile <(i64, Polynomial)>,
 );//</black_magic>
 
 fn get_min_err(pos: &[u8]) -> &str {
-    let len = if pos.len() > 7 { 7 } else { pos.len() };
+    let len = cmp::min(pos.len(), 7);
     let errstr = str::from_utf8(&pos[0..len]).unwrap();
     let errstr_lines: Vec<&str> = errstr.split("\n").collect();
     let errstr_1line = errstr_lines[0];
