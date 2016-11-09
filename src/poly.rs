@@ -124,16 +124,16 @@ pub trait Poly {
 	fn writeToFile(&self, filename: &String) -> Result<(), String>;
 
 	///Evaluates the polynomial at the given value using the naive method
-	fn evaluateAtNaive(&self, x: Complex64) -> Complex64;
+	fn evaluateAtNaive(&self, x: Complex64) -> (Complex64, usize) ;
 
 	///Evaluates using Horner's method
-	fn evaluateAtHorner(&self, x: Complex64) -> Complex64;
+	fn evaluateAtHorner(&self, x: Complex64) -> (Complex64, usize) ;
 
 	///Evaluates using the improved naive method
-	fn evaluateAtNaiveImproved(&self, x: Complex64) -> Complex64;
+	fn evaluateAtNaiveImproved(&self, x: Complex64) -> (Complex64, usize) ;
 
 	///Evaluates using the Fast Fourier Transform
-	fn evaluateAtFFT(&self) ->Vec<Complex64>;
+	fn evaluateAtFFT(&self) -> (Vec<Complex64>, usize);
 
 }
 
@@ -279,36 +279,41 @@ impl Poly for Polynomial {
 
 	}
 
-	fn evaluateAtNaive(&self, x: Complex64) -> Complex64 {
+	fn evaluateAtNaive(&self, x: Complex64) -> (Complex64, usize)  {
 
+		let mut count: usize = 0;
 		let mut sum = Complex64::new(0.0, 0.0);
 
 		for (i, coeff) in self.iter().enumerate() {
 
 			sum = sum + (coeff * x.powf(i as f64));
+			count += 1 + i;
 
 		}
 
-		return sum;
+		return (sum, count);
 
 	}
 
-	fn evaluateAtHorner(&self, x: Complex64) -> Complex64 {
+	fn evaluateAtHorner(&self, x: Complex64) -> (Complex64, usize)  {
 
+		let mut count: usize = 0;
 		let mut sum = Complex64::new(0.0, 0.0);
 
 		for coeff in self.iter().rev() {
 
 			sum = (sum * x) + coeff;
+			count += 1;
 
 		}
 
-		return sum;
+		return (sum, count);
 
 	}
 
-	fn evaluateAtNaiveImproved(&self, x: Complex64) -> Complex64 {
+	fn evaluateAtNaiveImproved(&self, x: Complex64) -> (Complex64, usize) {
 
+		let mut count: usize = 0;
 		let mut sum = Complex64::new(0.0, 0.0);
 		let mut xPower = Complex64::new(1.0, 0.0);
 
@@ -316,21 +321,27 @@ impl Poly for Polynomial {
 
 			sum = sum + (coeff * xPower);
 			xPower = xPower * x;
+			count += 2;
 
 		}
 
-		return sum;
+		return (sum, count);
 
 	}
 
-	fn evaluateAtFFT(&self) -> Vec<Complex64> {
+	fn evaluateAtFFT(&self) -> (Vec<Complex64>, usize) {
 
+		let mut count: usize = 0;
 		let n = self.len();
 
 		//base case
 		if n == 1 {
 
-			return vec![self[0]];
+			return (vec![self[0]], 0);
+
+		} else if n == 0 {
+
+			return (vec![], 0);
 
 		}
 
@@ -353,8 +364,10 @@ impl Poly for Polynomial {
 		}
 
 		//evaluate the evens and odds
-		let e = even.evaluateAtFFT();
-		let d = odd.evaluateAtFFT();
+		let (e, eCount) = even.evaluateAtFFT();
+		let (d, dCount) = odd.evaluateAtFFT();
+
+		count += eCount + dCount;
 
 		//calculate the new answers
 		let mut answer = Vec::with_capacity(n);
@@ -364,6 +377,7 @@ impl Poly for Polynomial {
 
 			let root = rootOfUnity(n as f64, k as f64);
 			let right = root * d[k];
+			count += 1;
 
 			let y0 = e[k] + right;
 			let y1 = e[k] - right;
@@ -373,7 +387,7 @@ impl Poly for Polynomial {
 
 		}
 
-		return answer;
+		return (answer, count);
 
 	}
 
@@ -510,14 +524,18 @@ mod tests {
 		let roots = rootsOfUnity(poly.len() as i32);
 
 		let mut attempt = Vec::with_capacity(poly.len());
+		let mut counts = 0;
 
 		for root in roots {
 
-			attempt.push(poly.evaluateAtNaive(root));
+			let (value, count) = poly.evaluateAtNaive(root);
+			attempt.push(value);
+			counts += count;
 
 		}
 
 		compare_within_tolerance(&attempt, &answer);
+		assert_eq!(counts, 40);
 
 	}
 
@@ -529,14 +547,18 @@ mod tests {
 		let roots = rootsOfUnity(poly.len() as i32);
 
 		let mut attempt = Vec::with_capacity(poly.len());
+		let mut counts = 0;
 
 		for root in roots {
 
-			attempt.push(poly.evaluateAtHorner(root));
+			let (value, count) = poly.evaluateAtHorner(root);
+			attempt.push(value);
+			counts += count;
 
 		}
 
 		compare_within_tolerance(&attempt, &answer);
+		assert_eq!(counts, 16);
 
 	}
 
@@ -548,14 +570,18 @@ mod tests {
 		let roots = rootsOfUnity(poly.len() as i32);
 
 		let mut attempt = Vec::with_capacity(poly.len());
+		let mut counts = 0;
 
 		for root in roots {
 
-			attempt.push(poly.evaluateAtNaiveImproved(root));
+			let(value, count) = poly.evaluateAtNaiveImproved(root);
+			attempt.push(value);
+			counts += count;
 
 		}
 
 		compare_within_tolerance(&attempt, &answer);
+		assert_eq!(counts, 32);
 
 	}
 
@@ -564,9 +590,10 @@ mod tests {
 
 		let poly 	= Polynomial::readFromFile(&"data/test.txt".to_string()).unwrap();
 		let answer 	= Polynomial::readFromFile(&"data/test_answers.txt".to_string()).unwrap();
-		let attempt = poly.evaluateAtFFT();
+		let (attempt, count) = poly.evaluateAtFFT();
 
 		compare_within_tolerance(&attempt, &answer);
+		assert_eq!(count, 4);
 
 	}
 
