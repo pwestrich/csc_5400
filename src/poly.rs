@@ -98,9 +98,9 @@ fn get_min_err(pos: &[u8]) -> &str {
 }
 
 ///calculates an individual root of unity given n and k
-fn rootOfUnity(n: f64, k: f64) -> Complex64 {
+fn rootOfUnity(n: i32, k: i32) -> Complex64 {
 
-	let theta = (2.0 * PI * k) / n;
+	let theta = (2.0 * PI * k as f64) / n as f64;
 	let (imag, real) = theta.sin_cos();
 
 	return Complex64::new(real, imag);
@@ -114,7 +114,7 @@ pub fn rootsOfUnity(n: i32) -> Vec<Complex64> {
 
 	for k in 0..n {
 
-		roots.push(rootOfUnity(n as f64, k as f64));
+		roots.push(rootOfUnity(n, k));
 
 	}
 
@@ -140,13 +140,13 @@ pub trait Poly {
 	fn writeToFile(&self, filename: &String) -> Result<(), String>;
 
 	///Evaluates the polynomial at the given value using the naive method
-	fn evaluateAtNaive(&self, x: Complex64) -> (Complex64, usize) ;
+	fn evaluateAtNaive(&self, x: Complex64) -> (Complex64, usize);
 
 	///Evaluates using Horner's method
-	fn evaluateAtHorner(&self, x: Complex64) -> (Complex64, usize) ;
+	fn evaluateAtHorner(&self, x: Complex64) -> (Complex64, usize);
 
 	///Evaluates using the improved naive method
-	fn evaluateAtNaiveImproved(&self, x: Complex64) -> (Complex64, usize) ;
+	fn evaluateAtNaiveImproved(&self, x: Complex64) -> (Complex64, usize);
 
 	///Evaluates using the Fast Fourier Transform
 	fn evaluateAtFFT(&self) -> (Vec<Complex64>, usize);
@@ -353,11 +353,11 @@ impl Poly for Polynomial {
 		//base case
 		if n == 1 {
 
-			return (vec![self[0]], 0);
+			return (vec![self[0]], count);
 
 		} else if n == 0 {
 
-			return (vec![], 0);
+			return (vec![], count);
 
 		}
 
@@ -391,7 +391,7 @@ impl Poly for Polynomial {
 
 		for k in 0..n / 2 {
 
-			let root = rootOfUnity(n as f64, k as f64);
+			let root = rootOfUnity(n as i32, k as i32);
 			let right = root * d[k];
 			count += 1;
 
@@ -399,7 +399,7 @@ impl Poly for Polynomial {
 			let y1 = e[k] - right;
 
 			answer[k] = y0;
-			answer[k + (n / 2)] =  y1;
+			answer[k + (n / 2)] = y1;
 
 		}
 
