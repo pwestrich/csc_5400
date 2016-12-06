@@ -1,7 +1,7 @@
 # csc_5400
 Repository for the programming assignment for CSC 5400: Analysis of Algorithms.
 
-To build and run this program, you first must install Rust. Instructions for that can be found [here.](https://doc.rust-lang.org/1.0.0/book/installing-rust.html)
+To build and run this program, you first must install Rust from [here.](https://www.rust-lang.org/en-US/downloads.html)
 
 Once you have the compiler and reposirtory, running is pretty easy. 
 
