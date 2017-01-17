@@ -613,4 +613,36 @@ mod tests {
 
 	}
 
+	#[test]
+	fn test_check_2048_answers(){
+
+		let poly 	= Polynomial::readFromFile(&"data/poly_2048.txt".to_string()).unwrap();
+		let n 		= poly.len();
+		let roots 	= rootsOfUnity(n as i32);
+
+		let mut naiveAnswers 	= Vec::with_capacity(n);
+		let mut hornerAnswers 	= Vec::with_capacity(n);
+		let mut improvedAnswers = Vec::with_capacity(n);
+
+		for root in roots {
+
+			let (naiveAnswer, _) 	= poly.evaluateAtNaive(root);
+			let (hornerAnswer, _) 	= poly.evaluateAtHorner(root);
+			let (improvedAnswer, _) = poly.evaluateAtNaiveImproved(root);
+
+			naiveAnswers.push(naiveAnswer);
+			hornerAnswers.push(hornerAnswer);
+			improvedAnswers.push(improvedAnswer);
+
+		}
+
+		let (fftAnswers, _) = poly.evaluateAtFFT();
+
+		compare_within_tolerance(&naiveAnswers, &fftAnswers);
+		compare_within_tolerance(&hornerAnswers, &fftAnswers);
+		compare_within_tolerance(&improvedAnswers, &fftAnswers);
+		compare_within_tolerance(&hornerAnswers, &improvedAnswers);
+
+	}
+
 }
